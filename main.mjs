@@ -82,26 +82,40 @@ client.on(Events.InteractionCreate, async interaction => {
 
   const raw = interaction.options.getString('内容').trim();
 
-  // ラベル一覧
   const labels = ['[名前]', '[VRCの名前]', '[年齢]', '[性別]', '[趣味]', '[一言]'];
 
-  // ラベルがすべて含まれているかチェック（不可視文字除去）
-  const normalize = text => text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ');
-  const cleaned = normalize(raw);
-  const isValid = labels.every(label => cleaned.includes(label));
+  // 正規化関数（不可視文字・多重スペース除去）
+  const normalize = text =>
+    text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
 
-  if (!isValid) {
+  const cleaned = normalize(raw);
+
+  // ラベルがすべて含まれているか
+  const hasAllLabels = labels.every(label => cleaned.includes(label));
+
+  // 各ラベルの後に中身があるか
+  const hasContentAfterLabels = labels.every((label, i) => {
+    const nextLabel = labels[i + 1];
+    const pattern = nextLabel
+      ? `${label}\\s*(.*?)\\s*${nextLabel}`
+      : `${label}\\s*(.+)$`;
+    const regex = new RegExp(pattern);
+    const match = cleaned.match(regex);
+    return match && match[1].trim().length > 0;
+  });
+
+  if (!hasAllLabels || !hasContentAfterLabels) {
     await interaction.reply({
       content:
-        '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルをすべて含めてください：\n\n' +
-        '[名前] [VRCの名前] [年齢] [性別] [趣味] [一言]',
+        '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルすべてに内容を記入してください：\n\n' +
+        '[名前] ○○ [VRCの名前] ○○ [年齢] ○○ [性別] ○○ [趣味] ○○ [一言] ○○',
       ephemeral: true
     });
     console.log(`🚫 自己紹介テンプレート不一致: ${interaction.user.tag}`);
     return;
   }
 
-  // 改行を挿入して整形
+  // 整形（ラベルごとに改行を挿入）
   let formatted = cleaned;
   for (const label of labels) {
     const safeLabel = label.replace(/[\[\]]/g, '\\$&');
@@ -124,7 +138,7 @@ client.on(Events.InteractionCreate, async interaction => {
     }
   }
 
-  // ✅ 通知チャンネルに改行付きで送信
+  // ✅ 通知チャンネルに送信
   if (config.introNotifyChannelId) {
     try {
       const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
