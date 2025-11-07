@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Partials, Events, REST, Routes, SlashCommandBuilder } from 'discord.js';
+import { client, GatewayIntentBits, Partials, Events, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import dotenv from 'dotenv';
 import express from 'express';
 import fs from 'fs';
