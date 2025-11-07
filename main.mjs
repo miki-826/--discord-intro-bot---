@@ -53,10 +53,10 @@ if (fs.existsSync(CONFIG_PATH)) {
 const commands = [
   new SlashCommandBuilder()
     .setName('introduce')
-    .setDescription('自己紹介を送信します')
+    .setDescription('自己紹介を送信します（改行なしでOK）')
     .addStringOption(opt =>
       opt.setName('内容')
-         .setDescription('自己紹介テンプレートを入力')
+         .setDescription('自己紹介テンプレートを1行で入力')
          .setRequired(true)
     )
 ].map(cmd => cmd.toJSON());
@@ -80,21 +80,31 @@ client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'introduce') return;
 
-  const rawContent = interaction.options.getString('内容');
-  const content = rawContent.replace(/\\n/g, '\n'); // ← 改行を復元
-  const introRegex = /\[名前\].+\n\[VRCの名前\].+\n\[年齢\].+\n\[性別\].+\n\[趣味\].+\n\[一言\].+/s;
+  const raw = interaction.options.getString('内容').trim();
 
-  // ❌ テンプレート不備
-  if (!introRegex.test(content)) {
+  // ラベル一覧
+  const labels = ['[名前]', '[VRCの名前]', '[年齢]', '[性別]', '[趣味]', '[一言]'];
+
+  // ラベルがすべて含まれているかチェック
+  const isValid = labels.every(label => raw.includes(label));
+  if (!isValid) {
     await interaction.reply({
       content:
-        '⚠️ 自己紹介の形式が正しくありません。\n以下のテンプレートに沿って記入してください：\n\n' +
-        '[名前]\n[VRCの名前]\n[年齢]\n[性別]\n[趣味]\n[一言]',
+        '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルをすべて含めてください：\n\n' +
+        '[名前] [VRCの名前] [年齢] [性別] [趣味] [一言]',
       ephemeral: true
     });
     console.log(`🚫 自己紹介テンプレート不一致: ${interaction.user.tag}`);
     return;
   }
+
+  // 改行を挿入して整形
+  let formatted = raw;
+  for (const label of labels) {
+    const regex = new RegExp(`(${label})`, 'g');
+    formatted = formatted.replace(regex, '\n$1');
+  }
+  formatted = formatted.trim();
 
   // ✅ ロール付与（必要なら）
   if (config.roleId) {
@@ -110,22 +120,22 @@ client.on(Events.InteractionCreate, async interaction => {
     }
   }
 
-  // ✅ 通知チャンネルに本文だけ送信（改行あり）
+  // ✅ 通知チャンネルに改行付きで送信
   if (config.introNotifyChannelId) {
     try {
       const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
       if (notifyChannel && notifyChannel.isTextBased()) {
-        await notifyChannel.send({ content });
-        console.log(`📨 自己紹介本文を通知チャンネルに送信しました`);
+        await notifyChannel.send({ content: formatted });
+        console.log(`📨 自己紹介を通知チャンネルに送信しました`);
       }
     } catch (err) {
       console.error('❌ 通知チャンネル送信失敗:', err);
     }
   }
 
-  // ✅ 本人にだけ成功メッセージ
+  // ✅ 本人にだけ元の入力を表示（改行なし）
   await interaction.reply({
-    content: '✅ 自己紹介を受け付けました！',
+    content: `✅ 自己紹介を受け付けました：\n${raw}`,
     ephemeral: true
   });
 });
