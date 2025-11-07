@@ -81,7 +81,7 @@ client.on(Events.InteractionCreate, async interaction => {
   if (interaction.commandName !== 'introduce') return;
 
   const content = interaction.options.getString('内容');
-  const introRegex = /\[名前\].+\n\[VRCの名前\].+\n\[年齢\].+\n\[性別\].+\n\[趣味\].+\n\[一言\].+/s;
+  const introRegex = /\[名前\].+\[VRCの名前\].+\[年齢\].+\[性別\].+\[趣味\].+\[一言\].+/s;
 
   // ❌ テンプレート不備
   if (!introRegex.test(content)) {
