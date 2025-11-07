@@ -69,7 +69,7 @@ client.on(Events.MessageCreate, async (message) => {
   const introRegex = /\[名前\].+\n\[VRCの名前\].+\n\[年齢\].+\n\[性別\].+\n\[趣味\].+\n\[一言\].+/s;
 
   if (!introRegex.test(message.content)) {
-    await message.reply(
+    await message.author.send(
       '⚠️ 自己紹介の形式が正しくありません。\n以下のテンプレートに沿って記入してください：\n\n' +
       '[名前]\n[VRCの名前]\n[年齢]\n[性別]\n[趣味]\n[一言]'
     );
@@ -90,10 +90,10 @@ client.on(Events.MessageCreate, async (message) => {
       roleSuccess = true;
     } catch (error) {
       console.error('❌ ロール付与失敗:', error);
-      await message.reply('⚠️ ロール付与に失敗しました。Botの権限を確認してください。');
+      await message.author.send('⚠️ ロール付与に失敗しました。Botの権限を確認してください。');
     }
   } else {
-    await message.reply('⚙️ roleId が設定されていません。管理者に連絡してください。');
+    await message.author.send('⚙️ roleId が設定されていません。管理者に連絡してください。');
   }
 
   // 通知チャンネルへの転送
@@ -102,7 +102,7 @@ client.on(Events.MessageCreate, async (message) => {
     try {
       const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
       if (notifyChannel && notifyChannel.isTextBased()) {
-        await notifyChannel.send({
+        await message.author.send({
           embeds: [{
             title: '📝 自己紹介を受信しました！',
             description: message.content,
@@ -123,7 +123,7 @@ client.on(Events.MessageCreate, async (message) => {
   let replyText = '✅ 自己紹介を確認しました！';
   if (roleSuccess) replyText += '\n🎉 ロールを付与しました。';
   if (notifySuccess) replyText += '\n📨 通知チャンネルに転送しました。';
-  await message.reply(replyText);
+  await message.author.send(replyText);
 });
 
 // ====================
