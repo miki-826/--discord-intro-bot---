@@ -85,8 +85,11 @@ client.on(Events.InteractionCreate, async interaction => {
   // ラベル一覧
   const labels = ['[名前]', '[VRCの名前]', '[年齢]', '[性別]', '[趣味]', '[一言]'];
 
-  // ラベルがすべて含まれているかチェック
-  const isValid = labels.every(label => raw.includes(label));
+  // ラベルがすべて含まれているかチェック（不可視文字除去）
+  const normalize = text => text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ');
+  const cleaned = normalize(raw);
+  const isValid = labels.every(label => cleaned.includes(label));
+
   if (!isValid) {
     await interaction.reply({
       content:
@@ -99,10 +102,11 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   // 改行を挿入して整形
-  let formatted = raw;
+  let formatted = cleaned;
   for (const label of labels) {
-    const regex = new RegExp(`(${label})`, 'g');
-    formatted = formatted.replace(regex, '\n$1');
+    const safeLabel = label.replace(/[\[\]]/g, '\\$&');
+    const regex = new RegExp(`\\s*(${safeLabel})\\s*`, 'g');
+    formatted = formatted.replace(regex, '\n$1 ');
   }
   formatted = formatted.trim();
 
