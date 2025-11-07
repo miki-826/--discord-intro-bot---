@@ -95,29 +95,21 @@ client.on(Events.InteractionCreate, async interaction => {
   // ラベルがすべて含まれているか
   const hasAllLabels = labels.every(label => cleaned.includes(label));
 
-  // ラベルごとに中身を抽出
-  const extractValue = (text, label, nextLabel) => {
-    const pattern = nextLabel
-      ? `${label}\\s*(.*?)\\s*${nextLabel}`
-      : `${label}\\s*(.*)$`;
-    const regex = new RegExp(pattern);
-    const match = text.match(regex);
-    return match ? match[1].trim() : '';
-  };
-
-  const values = labels.map((label, i) => {
+  // 各ラベルの後に中身があるか（1文字以上）
+  const hasContentAfterEachLabel = labels.every((label, i) => {
     const next = labels[i + 1];
-    return extractValue(cleaned, label, next);
+    const pattern = next
+      ? `${label}\\s*(.*?)\\s*${next}`
+      : `${label}\\s*(.+)$`;
+    const regex = new RegExp(pattern);
+    const match = cleaned.match(regex);
+    return match && match[1].trim().length > 0;
   });
 
-  // [一言] 以外はすべて中身必須
-  const requiredValues = values.slice(0, labels.length - 1);
-  const hasRequiredValues = requiredValues.every(v => v.length > 0);
-
-  if (!hasAllLabels || !hasRequiredValues) {
+  if (!hasAllLabels || !hasContentAfterEachLabel) {
     await interaction.reply({
       content:
-        '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルすべてに内容を記入してください（[一言] は空でもOK）：\n\n' +
+        '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルすべてに1文字以上の内容を記入してください：\n\n' +
         '[名前] ○○ [VRCの名前] ○○ [年齢] ○○ [性別] ○○ [趣味] ○○ [一言] ○○',
       ephemeral: true
     });
