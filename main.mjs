@@ -57,7 +57,7 @@ client.once(Events.ClientReady, () => {
 });
 
 // ====================
-// メッセージ監視＆ロール付与＆通知
+// メッセージ監視＆ロール付与＆通知＆不完全警告
 // ====================
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
@@ -67,7 +67,15 @@ client.on(Events.MessageCreate, async (message) => {
 
   // 自己紹介テンプレート判定
   const introRegex = /\[名前\].+\n\[VRCの名前\].+\n\[年齢\].+\n\[性別\].+\n\[趣味\].+\n\[一言\].+/s;
-  if (!introRegex.test(message.content)) return;
+
+  if (!introRegex.test(message.content)) {
+    await message.reply(
+      '⚠️ 自己紹介の形式が正しくありません。\n以下のテンプレートに沿って記入してください：\n\n' +
+      '[名前]\n[VRCの名前]\n[年齢]\n[性別]\n[趣味]\n[一言]'
+    );
+    console.log(`🚫 自己紹介テンプレート不一致: ${message.author.tag}`);
+    return;
+  }
 
   console.log(`📥 自己紹介検知: ${message.author.tag}`);
 
