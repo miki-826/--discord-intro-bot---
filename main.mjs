@@ -117,6 +117,10 @@ client.on(Events.InteractionCreate, async interaction => {
   }
   formatted = formatted.trim();
 
+  // 表示名の取得（ニックネーム優先）
+  const username = interaction.member?.nickname || interaction.user.username;
+  const introMessage = `📝 ${username} さんの自己紹介です：\n${formatted}`;
+
   // ✅ ロール付与（必要なら）
   if (config.roleId) {
     try {
@@ -136,7 +140,7 @@ client.on(Events.InteractionCreate, async interaction => {
     try {
       const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
       if (notifyChannel && notifyChannel.isTextBased()) {
-        await notifyChannel.send({ content: formatted });
+        await notifyChannel.send({ content: introMessage });
         console.log(`📨 自己紹介を通知チャンネルに送信しました`);
       }
     } catch (err) {
