@@ -85,28 +85,17 @@ client.on(Events.InteractionCreate, async interaction => {
   if (interaction.commandName !== 'introduce') return;
 
   const raw = interaction.options.getString('内容').trim();
-  const labels = ['[名前]', '[VRCの名前]', '[年齢]', '[性別]', '[趣味]', '[一言]'];
 
   // 正規化（不可視文字・多重スペース除去）
   const normalize = text =>
     text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
   const cleaned = normalize(raw);
 
-  // ラベルがすべて含まれているか
-  const hasAllLabels = labels.every(label => cleaned.includes(label));
+  // 正規表現で形式と中身を一括判定
+  const introRegex = /\[名前\].+\[VRCの名前\].+\[年齢\].+\[性別\].+\[趣味\].+\[一言\].+/s;
+  const isValidIntro = introRegex.test(cleaned);
 
-  // 各ラベルの後に中身があるか（1文字以上）
-  const hasContentAfterEachLabel = labels.every((label, i) => {
-    const next = labels[i + 1];
-    const pattern = next
-      ? `${label}\\s*(.*?)\\s*${next}`
-      : `${label}\\s*(.+)$`;
-    const regex = new RegExp(pattern);
-    const match = cleaned.match(regex);
-    return match && match[1].trim().length > 0;
-  });
-
-  if (!hasAllLabels || !hasContentAfterEachLabel) {
+  if (!isValidIntro) {
     await interaction.reply({
       content:
         '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルすべてに1文字以上の内容を記入してください：\n\n' +
@@ -118,6 +107,7 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   // 整形（ラベルごとに改行を挿入）
+  const labels = ['[名前]', '[VRCの名前]', '[年齢]', '[性別]', '[趣味]', '[一言]'];
   let formatted = cleaned;
   for (const label of labels) {
     const safeLabel = label.replace(/[\[\]]/g, '\\$&');
