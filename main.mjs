@@ -34,11 +34,7 @@ let config = { roleId: null, introNotifyChannelId: null };
 if (fs.existsSync(CONFIG_PATH)) {
   try {
     const data = fs.readFileSync(CONFIG_PATH, 'utf-8');
-    if (data.trim()) {
-      config = JSON.parse(data);
-    } else {
-      console.warn('⚠️ config.json が空だったため、デフォルト値を使用します。');
-    }
+    config = data.trim() ? JSON.parse(data) : config;
   } catch (err) {
     console.error('⚠️ config.json の読み込みに失敗しました:', err);
   }
@@ -81,13 +77,11 @@ client.on(Events.InteractionCreate, async interaction => {
   if (interaction.commandName !== 'introduce') return;
 
   const raw = interaction.options.getString('内容').trim();
-
   const labels = ['[名前]', '[VRCの名前]', '[年齢]', '[性別]', '[趣味]', '[一言]'];
 
-  // 正規化関数（不可視文字・多重スペース除去）
+  // 正規化（不可視文字・多重スペース除去）
   const normalize = text =>
     text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
-
   const cleaned = normalize(raw);
 
   // ラベルがすべて含まれているか
@@ -138,7 +132,7 @@ client.on(Events.InteractionCreate, async interaction => {
     }
   }
 
-  // ✅ 通知チャンネルに送信
+  // ✅ 通知チャンネルに送信（整形済み）
   if (config.introNotifyChannelId) {
     try {
       const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
