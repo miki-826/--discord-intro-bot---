@@ -1,5 +1,3 @@
-// main.mjs - Discord Botのメインプログラム
-
 import { Client, GatewayIntentBits, Partials, Events } from 'discord.js';
 import dotenv from 'dotenv';
 import express from 'express';
@@ -42,7 +40,7 @@ if (fs.existsSync(CONFIG_PATH)) {
       console.warn('⚠️ config.json が空だったため、デフォルト値を使用します。');
     }
   } catch (err) {
-    console.error('⚠️ config.json の読み込みに失敗しました。初期化します:', err);
+    console.error('⚠️ config.json の読み込みに失敗しました:', err);
   }
 } else {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
@@ -57,19 +55,17 @@ client.once(Events.ClientReady, () => {
 });
 
 // ====================
-// メッセージ監視＆ロール付与＆通知＆不完全警告
+// メッセージ監視処理
 // ====================
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
-
-  // チャンネル制限
   if (config.channelId && message.channel.id !== config.channelId) return;
 
-  // 自己紹介テンプレート判定
   const introRegex = /\[名前\].+\n\[VRCの名前\].+\n\[年齢\].+\n\[性別\].+\n\[趣味\].+\n\[一言\].+/s;
 
+  // 自己紹介が不完全な場合
   if (!introRegex.test(message.content)) {
-    await interaction.reply(
+    await message.reply(
       '⚠️ 自己紹介の形式が正しくありません。\n以下のテンプレートに沿って記入してください：\n\n' +
       '[名前]\n[VRCの名前]\n[年齢]\n[性別]\n[趣味]\n[一言]'
     );
@@ -79,51 +75,42 @@ client.on(Events.MessageCreate, async (message) => {
 
   console.log(`📥 自己紹介検知: ${message.author.tag}`);
 
-  // ロール付与処理
-  let roleSuccess = false;
+  // ロール付与（重複チェックあり）
   if (config.roleId) {
     try {
       const role = await message.guild.roles.fetch(config.roleId);
       const member = await message.guild.members.fetch(message.author.id);
-      await member.roles.add(role);
-      console.log(`🎉 ロール付与完了: ${config.roleId}`);
-      roleSuccess = true;
+      if (!member.roles.cache.has(role.id)) {
+        await member.roles.add(role);
+        console.log(`🎉 ロール付与完了: ${config.roleId}`);
+      } else {
+        console.log(`ℹ️ すでにロールを所持: ${message.author.tag}`);
+      }
     } catch (error) {
       console.error('❌ ロール付与失敗:', error);
-      await interaction.reply('⚠️ ロール付与に失敗しました。Botの権限を確認してください。');
     }
-  } else {
-    await interaction.reply('⚙️ roleId が設定されていません。管理者に連絡してください。');
   }
 
-  // 通知チャンネルへの転送
-  let notifySuccess = false;
+  // 通知チャンネルにのみEmbed送信（本人には返信しない）
   if (config.introNotifyChannelId) {
     try {
       const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
       if (notifyChannel && notifyChannel.isTextBased()) {
-        await interaction.reply({
+        await notifyChannel.send({
           embeds: [{
-            title: '📝 自己紹介を受信しました！',
+            title: '📝 新しい自己紹介が投稿されました！',
             description: message.content,
-            color: 0x00ff88,
+            color: 0x00bfff,
             footer: { text: `ユーザー: ${message.author.tag}` },
             timestamp: new Date().toISOString()
           }]
         });
         console.log(`📨 通知チャンネル送信完了: ${config.introNotifyChannelId}`);
-        notifySuccess = true;
       }
     } catch (err) {
       console.error('❌ 通知チャンネル送信失敗:', err);
     }
   }
-
-  // ユーザーへの返信
-  let replyText = '✅ 自己紹介を確認しました！';
-  if (roleSuccess) replyText += '\n🎉 ロールを付与しました。';
-  if (notifySuccess) replyText += '\n📨 通知チャンネルに転送しました。';
-  await interaction.reply(replyText);
 });
 
 // ====================
