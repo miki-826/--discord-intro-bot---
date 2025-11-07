@@ -1,80 +1,132 @@
-// main.mjs - Discord Botのメインプログラム
-
-// 必要なライブラリを読み込み
-import { Client, GatewayIntentBits } from 'discord.js';
+// main.mjs
+import { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, PermissionsBitField } from 'discord.js';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import express from 'express';
 
-// .envファイルから環境変数を読み込み
 dotenv.config();
 
-// Discord Botクライアントを作成
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,           // サーバー情報取得
-        GatewayIntentBits.GuildMessages,    // メッセージ取得
-        GatewayIntentBits.MessageContent,   // メッセージ内容取得
-        GatewayIntentBits.GuildMembers,     // メンバー情報取得
-    ],
-});
-
-// Botが起動完了したときの処理
-client.once('ready', () => {
-    console.log(`🎉 ${client.user.tag} が正常に起動しました！`);
-    console.log(`📊 ${client.guilds.cache.size} つのサーバーに参加中`);
-});
-
-// メッセージが送信されたときの処理
-client.on('messageCreate', (message) => {
-    // Bot自身のメッセージは無視
-    if (message.author.bot) return;
-    
-    // 「ping」メッセージに反応
-    if (message.content.toLowerCase() === 'ping') {
-        message.reply('🏓 pong!');
-        console.log(`📝 ${message.author.tag} が ping コマンドを使用`);
-    }
-});
-
-// エラーハンドリング
-client.on('error', (error) => {
-    console.error('❌ Discord クライアントエラー:', error);
-});
-
-// プロセス終了時の処理
-process.on('SIGINT', () => {
-    console.log('🛑 Botを終了しています...');
-    client.destroy();
-    process.exit(0);
-});
-
-// Discord にログイン
-if (!process.env.DISCORD_TOKEN) {
-    console.error('❌ DISCORD_TOKEN が .env ファイルに設定されていません！');
-    process.exit(1);
+// 設定ファイル
+const CONFIG_PATH = './config.json';
+let config = { channelId: null, roleId: null };
+if (fs.existsSync(CONFIG_PATH)) {
+    config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
 }
 
-console.log('🔄 Discord に接続中...');
-client.login(process.env.DISCORD_TOKEN)
-    .catch(error => {
-        console.error('❌ ログインに失敗しました:', error);
-        process.exit(1);
-    });
+// Discordクライアント作成
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers
+    ]
+});
 
-// Express Webサーバーの設定（Render用）
+// =====================
+// Slashコマンド登録
+// =====================
+const commands = [
+    new SlashCommandBuilder()
+        .setName('setup')
+        .setDescription('自己紹介の設定を行います（管理者専用）')
+        .addChannelOption(option =>
+            option.setName('channel')
+                .setDescription('自己紹介を投稿するチャンネル')
+                .setRequired(true))
+        .addRoleOption(option =>
+            option.setName('role')
+                .setDescription('自己紹介完了時に付与するロール')
+                .setRequired(true))
+].map(cmd => cmd.toJSON());
+
+const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+
+// コマンド登録
+(async () => {
+    try {
+        console.log('⏳ Slashコマンド登録中...');
+        await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+        console.log('✅ Slashコマンド登録完了！');
+    } catch (error) {
+        console.error('❌ Slashコマンド登録エラー:', error);
+    }
+})();
+
+// =====================
+// 起動時
+// =====================
+client.once('ready', () => {
+    console.log(`🎉 ${client.user.tag} が起動しました！`);
+});
+
+// =====================
+// コマンド処理
+// =====================
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isCommand()) return;
+
+    if (interaction.commandName === 'setup') {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: '❌ このコマンドは管理者のみ使用できます。', ephemeral: true });
+        }
+
+        const channel = interaction.options.getChannel('channel');
+        const role = interaction.options.getRole('role');
+
+        config.channelId = channel.id;
+        config.roleId = role.id;
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+
+        await interaction.reply({
+            content: `✅ 設定完了しました！\n自己紹介チャンネル: ${channel}\n付与ロール: ${role}`,
+            ephemeral: false
+        });
+    }
+});
+
+// =====================
+// メッセージ監視
+// =====================
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+    if (!config.channelId || !config.roleId) return; // 設定されていない場合は無視
+    if (message.channel.id !== config.channelId) return;
+
+    const pattern = /\[名前\].+?\[VRCの名前\].+?\[年齢\].+?\[性別\].+?\[趣味\].+?\[一言\].+/s;
+
+    if (pattern.test(message.content)) {
+        const role = message.guild.roles.cache.get(config.roleId);
+        if (role) {
+            await message.member.roles.add(role);
+            await message.reply(`✅ フォーマット確認OK！ ${role.name} ロールを付与しました！`);
+        } else {
+            await message.reply('⚠️ ロールが見つかりません。管理者に確認してください。');
+        }
+    } else {
+        await message.reply(
+            '⚠️ 自己紹介の形式が正しくありません！\n以下の形式で書いてください：\n```\n' +
+            '[名前] 〇〇\n[VRCの名前] 〇〇\n[年齢] 〇〇\n[性別] 〇〇\n[趣味] 〇〇\n[一言] 〇〇\n```'
+        );
+    }
+});
+
+// =====================
+// エラーハンドリング
+// =====================
+client.on('error', console.error);
+
+// =====================
+// Express サーバー（Render対応）
+// =====================
 const app = express();
 const port = process.env.PORT || 3000;
-
-// ヘルスチェック用エンドポイント
 app.get('/', (req, res) => {
-    res.json({
-        status: 'Bot is running! 🤖',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString()
-    });
+    res.json({ status: 'Bot is running 🤖', config });
 });
+app.listen(port, () => console.log(`🌐 Webサーバー起動（Port ${port}）`));
 
-// サーバー起動
-app.listen(port, () => {
-    console.log(`🌐 Web サーバーがポート ${port} で起動しました`);
-});
+// =====================
+// Discord ログイン
+// =====================
+client.login(process.env.DISCORD_TOKEN);
