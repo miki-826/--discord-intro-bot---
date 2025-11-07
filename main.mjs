@@ -1,4 +1,12 @@
-import { Client, GatewayIntentBits, Partials, Events, REST, Routes, SlashCommandBuilder } from 'discord.js';
+import {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  Events,
+  REST,
+  Routes,
+  SlashCommandBuilder
+} from 'discord.js';
 import dotenv from 'dotenv';
 import express from 'express';
 import fs from 'fs';
@@ -87,7 +95,7 @@ client.on(Events.InteractionCreate, async interaction => {
   // ラベルがすべて含まれているか
   const hasAllLabels = labels.every(label => cleaned.includes(label));
 
-  // 各ラベルの後に中身を抽出
+  // ラベルごとに中身を抽出
   const extractValue = (text, label, nextLabel) => {
     const pattern = nextLabel
       ? `${label}\\s*(.*?)\\s*${nextLabel}`
