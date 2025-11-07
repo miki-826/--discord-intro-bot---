@@ -80,8 +80,9 @@ client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'introduce') return;
 
-  const content = interaction.options.getString('内容');
-  const introRegex = /\[名前\].+\[VRCの名前\].+\[年齢\].+\[性別\].+\[趣味\].+\[一言\].+/s;
+  const rawContent = interaction.options.getString('内容');
+  const content = rawContent.replace(/\\n/g, '\n'); // ← 改行を復元
+  const introRegex = /\[名前\].+\n\[VRCの名前\].+\n\[年齢\].+\n\[性別\].+\n\[趣味\].+\n\[一言\].+/s;
 
   // ❌ テンプレート不備
   if (!introRegex.test(content)) {
@@ -109,12 +110,12 @@ client.on(Events.InteractionCreate, async interaction => {
     }
   }
 
-  // ✅ 通知チャンネルに本文だけ送信
+  // ✅ 通知チャンネルに本文だけ送信（改行あり）
   if (config.introNotifyChannelId) {
     try {
       const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
       if (notifyChannel && notifyChannel.isTextBased()) {
-        await notifyChannel.send(content);
+        await notifyChannel.send({ content });
         console.log(`📨 自己紹介本文を通知チャンネルに送信しました`);
       }
     } catch (err) {
