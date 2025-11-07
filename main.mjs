@@ -84,6 +84,8 @@ client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'introduce') return;
 
+  await interaction.deferReply({ ephemeral: true });
+
   const raw = interaction.options.getString('内容').trim();
 
   // 正規化（不可視文字・多重スペース除去）
@@ -96,11 +98,10 @@ client.on(Events.InteractionCreate, async interaction => {
   const isValidIntro = introRegex.test(cleaned);
 
   if (!isValidIntro) {
-    await interaction.reply({
+    await interaction.editReply({
       content:
         '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルすべてに1文字以上の内容を記入してください：\n\n' +
-        '[名前] ○○ [VRCの名前] ○○ [年齢] ○○ [性別] ○○ [趣味] ○○ [一言] ○○',
-      ephemeral: true
+        '[名前] ○○ [VRCの名前] ○○ [年齢] ○○ [性別] ○○ [趣味] ○○ [一言] ○○'
     });
     console.log(`🚫 自己紹介テンプレート不一致: ${interaction.user.tag}`);
     return;
@@ -144,9 +145,8 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   // ✅ 本人にだけ元の入力を表示（改行なし）
-  await interaction.reply({
-    content: `✅ 自己紹介を受け付けました：\n${raw}`,
-    ephemeral: true
+  await interaction.editReply({
+    content: `✅ 自己紹介を受け付けました：\n${raw}`
   });
 });
 
