@@ -180,7 +180,7 @@ if (config.introNotifyChannelId) {
       const embed = new EmbedBuilder()
         .setAuthor({ name: `${username} さんの自己紹介`, iconURL: avatar })
         .setDescription(formatted.trim())
-        .setColor(0x00bfff); // 好きな色に変更可
+        .setColor(0x00bfff);
 
       await notifyChannel.send({ embeds: [embed] });
       console.log(`📨 自己紹介を通知チャンネルに送信しました`);
