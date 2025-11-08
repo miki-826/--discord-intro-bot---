@@ -52,7 +52,7 @@ if (fs.existsSync(CONFIG_PATH)) {
 }
 
 // ====================
-// スラッシュコマンド登録（ギルド登録推奨）
+// スラッシュコマンド登録（ギルド登録）
 // ====================
 const commands = [
   new SlashCommandBuilder()
@@ -118,7 +118,12 @@ client.on(Events.InteractionCreate, async interaction => {
 
   // /introduce
   if (commandName === 'introduce') {
-    await interaction.deferReply({ flags: 64 });
+    try {
+      await interaction.deferReply({ flags: 64 });
+    } catch (err) {
+      console.error('❌ deferReply 失敗:', err);
+      return;
+    }
 
     const raw = interaction.options.getString('内容').trim();
     const normalize = text =>
@@ -126,15 +131,12 @@ client.on(Events.InteractionCreate, async interaction => {
     const cleaned = normalize(raw);
 
     const introRegex = /\[名前\].+\[VRCの名前\].+\[年齢\].+\[性別\].+\[趣味\].+\[一言\].+/s;
-    const isValidIntro = introRegex.test(cleaned);
-
-    if (!isValidIntro) {
+    if (!introRegex.test(cleaned)) {
       await interaction.editReply({
         content:
           '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルすべてに1文字以上の内容を記入してください：\n\n' +
           '[名前] ○○ [VRCの名前] ○○ [年齢] ○○ [性別] ○○ [趣味] ○○ [一言] ○○'
       });
-      console.log(`🚫 自己紹介テンプレート不一致: ${interaction.user.tag}`);
       return;
     }
 
@@ -145,19 +147,16 @@ client.on(Events.InteractionCreate, async interaction => {
       const regex = new RegExp(`\\s*(${safeLabel})\\s*`, 'g');
       formatted = formatted.replace(regex, '\n$1 ');
     }
-    formatted = formatted.trim();
 
     const username = interaction.member?.nickname || interaction.user.username;
-    const introMessage = `📝 ${username} さんの自己紹介です：\n${formatted}`;
+    const introMessage = `📝 ${username} さんの自己紹介です：\n${formatted.trim()}`;
 
     // ロール付与
     if (config.roleId) {
       try {
         const role = await interaction.guild.roles.fetch(config.roleId);
         const member = await interaction.guild.members.fetch(interaction.user.id);
-        if (!role.editable) {
-          console.warn(`⚠️ Botはロール '${role.name}' を編集できません`);
-        } else if (!member.roles.cache.has(role.id)) {
+        if (role.editable && !member.roles.cache.has(role.id)) {
           await member.roles.add(role);
           console.log(`🎉 ロール付与完了: ${interaction.user.tag}`);
         }
@@ -170,7 +169,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (config.introNotifyChannelId) {
       try {
         const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
-        if (notifyChannel && notifyChannel.isTextBased()) {
+        if (notifyChannel?.isTextBased()) {
           await notifyChannel.send({ content: introMessage });
           console.log(`📨 自己紹介を通知チャンネルに送信しました`);
         }
@@ -179,14 +178,17 @@ client.on(Events.InteractionCreate, async interaction => {
       }
     }
 
-    await interaction.editReply({
-      content: `✅ 自己紹介を受け付けました：\n${raw}`
-    });
+    await interaction.editReply({ content: `✅ 自己紹介を受け付けました：\n${raw}` });
   }
 
   // /setconfig
   if (commandName === 'setconfig') {
-    await interaction.deferReply({ flags: 64 });
+    try {
+      await interaction.deferReply({ flags: 64 });
+    } catch (err) {
+      console.error('❌ deferReply 失敗:', err);
+      return;
+    }
 
     const key = interaction.options.getString('key');
     const value = interaction.options.getString('value');
@@ -210,15 +212,11 @@ client.on(Events.InteractionCreate, async interaction => {
     config[key] = value;
     try {
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-      await interaction.editReply({
-        content: `✅ ${key} を更新しました：${value}`
-      });
+      await interaction.editReply({ content: `✅ ${key} を更新しました：${value}` });
       console.log(`🛠️ ${key} を ${interaction.user.tag} が更新しました`);
     } catch (err) {
       console.error('❌ config.json 書き込み失敗:', err);
-      await interaction.editReply({
-        content: '❌ 設定の保存に失敗しました。'
-      });
+      await interaction.editReply({ content: '❌ 設定の保存に失敗しました。' });
     }
   }
 });
