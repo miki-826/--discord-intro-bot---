@@ -68,7 +68,7 @@ const commands = [
     .setDescription('Botの設定を更新します（管理者専用）')
     .addStringOption(opt =>
       opt.setName('key')
-         .setDescription('設定項目（channelId / roleId / introNotifyChannelId）')
+         .setDescription('設定項目（ roleId / introNotifyChannelId）')
          .setRequired(true)
     )
     .addStringOption(opt =>
@@ -192,7 +192,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     const key = interaction.options.getString('key');
     const value = interaction.options.getString('value');
-    const allowedKeys = ['channelId', 'roleId', 'introNotifyChannelId'];
+    const allowedKeys = [ 'roleId', 'introNotifyChannelId'];
 
     if (!allowedKeys.includes(key)) {
       await interaction.editReply({
