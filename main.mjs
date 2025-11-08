@@ -5,12 +5,12 @@ import {
   Events,
   REST,
   Routes,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  EmbedBuilder
 } from 'discord.js';
 import dotenv from 'dotenv';
 import express from 'express';
 import fs from 'fs';
-import { EmbedBuilder } from 'discord.js';
 
 dotenv.config();
 
@@ -69,7 +69,7 @@ const commands = [
     .setDescription('Botの設定を更新します（管理者専用）')
     .addStringOption(opt =>
       opt.setName('key')
-         .setDescription('設定項目（ roleId / introNotifyChannelId）')
+         .setDescription('設定項目（roleId / introNotifyChannelId）')
          .setRequired(true)
     )
     .addStringOption(opt =>
@@ -150,7 +150,25 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 
     const username = interaction.member?.nickname || interaction.user.username;
-    const introMessage = `📝 ${username} さんの自己紹介です：\n${formatted.trim()}`;
+    const avatar = interaction.user.displayAvatarURL({ size: 256, dynamic: true });
+
+    // 通知チャンネルに送信（Embed形式）
+    if (config.introNotifyChannelId) {
+      try {
+        const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
+        if (notifyChannel?.isTextBased()) {
+          const embed = new EmbedBuilder()
+            .setAuthor({ name: `${username} さんの自己紹介`, iconURL: avatar })
+            .setDescription(formatted.trim())
+            .setColor(0x00bfff);
+
+          await notifyChannel.send({ embeds: [embed] });
+          console.log(`📨 自己紹介を通知チャンネルに送信しました`);
+        }
+      } catch (err) {
+        console.error('❌ 通知チャンネル送信失敗:', err);
+      }
+    }
 
     // ロール付与
     if (config.roleId) {
@@ -164,31 +182,6 @@ client.on(Events.InteractionCreate, async interaction => {
       } catch (err) {
         console.error('❌ ロール付与失敗:', err);
       }
-    }
-
-    // 通知チャンネルに送信
-    if (config.introNotifyChannelId) {
-      try {
-        const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
-        if (notifyChannel?.isTextBased()) {
-          // 通知チャンネルに送信（Embed形式）
-if (config.introNotifyChannelId) {
-  try {
-    const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
-    if (notifyChannel?.isTextBased()) {
-      const avatar = interaction.user.displayAvatarURL({ size: 256, dynamic: true });
-      const embed = new EmbedBuilder()
-        .setAuthor({ name: `${username} さんの自己紹介`, iconURL: avatar })
-        .setDescription(formatted.trim())
-        .setColor(0x00bfff);
-
-      await notifyChannel.send({ embeds: [embed] });
-      console.log(`📨 自己紹介を通知チャンネルに送信しました`);
-    }
-  } catch (err) {
-    console.error('❌ 通知チャンネル送信失敗:', err);
-  }
-}
     }
 
     await interaction.editReply({ content: `✅ 自己紹介を受け付けました：\n${raw}` });
@@ -205,7 +198,7 @@ if (config.introNotifyChannelId) {
 
     const key = interaction.options.getString('key');
     const value = interaction.options.getString('value');
-    const allowedKeys = [ 'roleId', 'introNotifyChannelId'];
+    const allowedKeys = ['roleId', 'introNotifyChannelId'];
 
     if (!allowedKeys.includes(key)) {
       await interaction.editReply({
@@ -233,6 +226,7 @@ if (config.introNotifyChannelId) {
     }
   }
 });
+
 
 // ====================
 // Botログイン
