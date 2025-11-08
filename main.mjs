@@ -62,19 +62,6 @@ const commands = [
       opt.setName('内容')
          .setDescription('自己紹介テンプレートを1行で入力')
          .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName('setconfig')
-    .setDescription('Botの設定を更新します（管理者専用）')
-    .addStringOption(opt =>
-      opt.setName('key')
-         .setDescription('設定項目（channelId / roleId / introNotifyChannelId）')
-         .setRequired(true)
-    )
-    .addStringOption(opt =>
-      opt.setName('value')
-         .setDescription('新しい値（ID）')
-         .setRequired(true)
     )
 ].map(cmd => cmd.toJSON());
 
@@ -95,119 +82,76 @@ client.once(Events.ClientReady, () => {
 // ====================
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'introduce') return;
 
-  const { commandName } = interaction;
+  await interaction.deferReply({ ephemeral: true });
 
-  // ====================
-  // /introduce 処理
-  // ====================
-  if (commandName === 'introduce') {
-    await interaction.deferReply({ flags: 64 });
+  const raw = interaction.options.getString('内容').trim();
 
-    const raw = interaction.options.getString('内容').trim();
+  // 正規化（不可視文字・多重スペース除去）
+  const normalize = text =>
+    text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+  const cleaned = normalize(raw);
 
-    const normalize = text =>
-      text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
-    const cleaned = normalize(raw);
+  // 正規表現で形式と中身を一括判定
+  const introRegex = /\[名前\].+\[VRCの名前\].+\[年齢\].+\[性別\].+\[趣味\].+\[一言\].+/s;
+  const isValidIntro = introRegex.test(cleaned);
 
-    const introRegex = /\[名前\].+\[VRCの名前\].+\[年齢\].+\[性別\].+\[趣味\].+\[一言\].+/s;
-    const isValidIntro = introRegex.test(cleaned);
-
-    if (!isValidIntro) {
-      await interaction.editReply({
-        content:
-          '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルすべてに1文字以上の内容を記入してください：\n\n' +
-          '[名前] ○○ [VRCの名前] ○○ [年齢] ○○ [性別] ○○ [趣味] ○○ [一言] ○○'
-      });
-      console.log(`🚫 自己紹介テンプレート不一致: ${interaction.user.tag}`);
-      return;
-    }
-
-    const labels = ['[名前]', '[VRCの名前]', '[年齢]', '[性別]', '[趣味]', '[一言]'];
-    let formatted = cleaned;
-    for (const label of labels) {
-      const safeLabel = label.replace(/[\[\]]/g, '\\$&');
-      const regex = new RegExp(`\\s*(${safeLabel})\\s*`, 'g');
-      formatted = formatted.replace(regex, '\n$1 ');
-    }
-    formatted = formatted.trim();
-
-    const username = interaction.member?.nickname || interaction.user.username;
-    const introMessage = `📝 ${username} さんの自己紹介です：\n${formatted}`;
-
-    // ロール付与（安全確認付き）
-    if (config.roleId) {
-      try {
-        const role = await interaction.guild.roles.fetch(config.roleId);
-        const member = await interaction.guild.members.fetch(interaction.user.id);
-        if (!role.editable) {
-          console.warn(`⚠️ Botはロール '${role.name}' を編集できません`);
-        } else if (!member.roles.cache.has(role.id)) {
-          await member.roles.add(role);
-          console.log(`🎉 ロール付与完了: ${interaction.user.tag}`);
-        }
-      } catch (err) {
-        console.error('❌ ロール付与失敗:', err);
-      }
-    }
-
-    // 通知チャンネルに送信
-    if (config.introNotifyChannelId) {
-      try {
-        const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
-        if (notifyChannel && notifyChannel.isTextBased()) {
-          await notifyChannel.send({ content: introMessage });
-          console.log(`📨 自己紹介を通知チャンネルに送信しました`);
-        }
-      } catch (err) {
-        console.error('❌ 通知チャンネル送信失敗:', err);
-      }
-    }
-
+  if (!isValidIntro) {
     await interaction.editReply({
-      content: `✅ 自己紹介を受け付けました：\n${raw}`
+      content:
+        '⚠️ 自己紹介の形式が正しくありません。\n以下のラベルすべてに1文字以上の内容を記入してください：\n\n' +
+        '[名前] ○○ [VRCの名前] ○○ [年齢] ○○ [性別] ○○ [趣味] ○○ [一言] ○○'
     });
+    console.log(`🚫 自己紹介テンプレート不一致: ${interaction.user.tag}`);
+    return;
   }
 
-  // ====================
-  // /setconfig 処理
-  // ====================
-  if (commandName === 'setconfig') {
-    await interaction.deferReply({ flags: 64 });
+  // 整形（ラベルごとに改行を挿入）
+  const labels = ['[名前]', '[VRCの名前]', '[年齢]', '[性別]', '[趣味]', '[一言]'];
+  let formatted = cleaned;
+  for (const label of labels) {
+    const safeLabel = label.replace(/[\[\]]/g, '\\$&');
+    const regex = new RegExp(`\\s*(${safeLabel})\\s*`, 'g');
+    formatted = formatted.replace(regex, '\n$1 ');
+  }
+  formatted = formatted.trim();
 
-    const key = interaction.options.getString('key');
-    const value = interaction.options.getString('value');
-    const allowedKeys = ['channelId', 'roleId', 'introNotifyChannelId'];
+  // 表示名の取得（ニックネーム優先）
+  const username = interaction.member?.nickname || interaction.user.username;
+  const introMessage = `📝 ${username} さんの自己紹介です：\n${formatted}`;
 
-    if (!allowedKeys.includes(key)) {
-      await interaction.editReply({
-        content: `❌ 無効なキーです。使用可能: ${allowedKeys.join(', ')}`
-      });
-      return;
-    }
-
-    const member = await interaction.guild.members.fetch(interaction.user.id);
-    if (!member.permissions.has('Administrator')) {
-      await interaction.editReply({
-        content: '❌ このコマンドは管理者のみ実行できます。'
-      });
-      return;
-    }
-
-    config[key] = value;
+  // ✅ ロール付与（必要なら）
+  if (config.roleId) {
     try {
-      fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-      await interaction.editReply({
-        content: `✅ ${key} を更新しました：${value}`
-      });
-      console.log(`🛠️ ${key} を ${interaction.user.tag} が更新しました`);
+      const role = await interaction.guild.roles.fetch(config.roleId);
+      const member = await interaction.guild.members.fetch(interaction.user.id);
+      if (!member.roles.cache.has(role.id)) {
+        await member.roles.add(role);
+        console.log(`🎉 ロール付与完了: ${interaction.user.tag}`);
+      }
     } catch (err) {
-      console.error('❌ config.json 書き込み失敗:', err);
-      await interaction.editReply({
-        content: '❌ 設定の保存に失敗しました。'
-      });
+      console.error('❌ ロール付与失敗:', err);
     }
   }
+
+  // ✅ 通知チャンネルに送信（整形済み）
+  if (config.introNotifyChannelId) {
+    try {
+      const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
+      if (notifyChannel && notifyChannel.isTextBased()) {
+        await notifyChannel.send({ content: introMessage });
+        console.log(`📨 自己紹介を通知チャンネルに送信しました`);
+      }
+    } catch (err) {
+      console.error('❌ 通知チャンネル送信失敗:', err);
+    }
+  }
+
+  // ✅ 本人にだけ元の入力を表示（改行なし）
+  await interaction.editReply({
+    content: `✅ 自己紹介を受け付けました：\n${raw}`
+  });
 });
 
 // ====================
