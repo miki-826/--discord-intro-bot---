@@ -10,6 +10,7 @@ import {
 import dotenv from 'dotenv';
 import express from 'express';
 import fs from 'fs';
+import { EmbedBuilder } from 'discord.js';
 
 dotenv.config();
 
@@ -170,12 +171,24 @@ client.on(Events.InteractionCreate, async interaction => {
       try {
         const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
         if (notifyChannel?.isTextBased()) {
-          await notifyChannel.send({ content: introMessage });
-          console.log(`📨 自己紹介を通知チャンネルに送信しました`);
-        }
-      } catch (err) {
-        console.error('❌ 通知チャンネル送信失敗:', err);
-      }
+          // 通知チャンネルに送信（Embed形式）
+if (config.introNotifyChannelId) {
+  try {
+    const notifyChannel = await client.channels.fetch(config.introNotifyChannelId);
+    if (notifyChannel?.isTextBased()) {
+      const avatar = interaction.user.displayAvatarURL({ size: 256, dynamic: true });
+      const embed = new EmbedBuilder()
+        .setAuthor({ name: `${username} さんの自己紹介`, iconURL: avatar })
+        .setDescription(formatted.trim())
+        .setColor(0x00bfff); // 好きな色に変更可
+
+      await notifyChannel.send({ embeds: [embed] });
+      console.log(`📨 自己紹介を通知チャンネルに送信しました`);
+    }
+  } catch (err) {
+    console.error('❌ 通知チャンネル送信失敗:', err);
+  }
+}
     }
 
     await interaction.editReply({ content: `✅ 自己紹介を受け付けました：\n${raw}` });
