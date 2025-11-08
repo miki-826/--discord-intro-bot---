@@ -5,8 +5,7 @@ import {
   Events,
   REST,
   Routes,
-  SlashCommandBuilder,
-  InteractionFlags
+  SlashCommandBuilder
 } from 'discord.js';
 import dotenv from 'dotenv';
 import express from 'express';
@@ -103,7 +102,7 @@ client.on(Events.InteractionCreate, async interaction => {
   // /introduce 処理
   // ====================
   if (commandName === 'introduce') {
-    await interaction.deferReply({ flags: InteractionFlags.Ephemeral });
+    await interaction.deferReply({ flags: 64 });
 
     const raw = interaction.options.getString('内容').trim();
 
@@ -174,7 +173,7 @@ client.on(Events.InteractionCreate, async interaction => {
   // /setconfig 処理
   // ====================
   if (commandName === 'setconfig') {
-    await interaction.deferReply({ flags: InteractionFlags.Ephemeral });
+    await interaction.deferReply({ flags: 64 });
 
     const key = interaction.options.getString('key');
     const value = interaction.options.getString('value');
