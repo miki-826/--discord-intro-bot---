@@ -214,8 +214,8 @@ client.on(Events.InteractionCreate, async interaction => {
 // ====================
 // Botログイン
 // ====================
-if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID || !process.env.GUILD_ID) {
-  console.error('❌ DISCORD_TOKEN / CLIENT_ID / GUILD_ID が .env に設定されていません！');
+if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
+  console.error('❌ DISCORD_TOKEN / CLIENT_ID が .env に設定されていません！');
   process.exit(1);
 }
 
